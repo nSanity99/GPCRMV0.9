@@ -29,10 +29,10 @@ $data_rows = [];
 // ===================================================================
 if ($report_type === 'gestione') {
     $filename = "Report_Gestione_Ordini_" . date('Y-m-d') . ".csv";
-    $headers = ['ID Ordine', 'Data Richiesta', 'Richiedente', 'Centro di Costo', 'Stato Ordine', 'Nome Prodotto', 'Quantita', 'Unita', 'Note', 'Stato Prodotto'];
+    $headers = ['ID Ordine', 'Data Richiesta', 'Richiedente', 'Centro di Costo', 'Stato Ordine', 'Nome Prodotto', 'Quantita', 'Unita', 'Note', 'Stato Prodotto', 'Data Evasione'];
     
     // Ricostruisci la query di gestioneordini.php
-    $sql = "SELECT o.id_ordine, o.data_richiesta, o.nome_richiedente, o.centro_costo, o.stato_ordine, do.nome_prodotto, do.quantita, do.unita_misura, do.note_prodotto, do.stato_prodotto FROM ordini o LEFT JOIN dettagli_ordine do ON o.id_ordine = do.id_ordine";
+    $sql = "SELECT o.id_ordine, o.data_richiesta, o.nome_richiedente, o.centro_costo, o.stato_ordine, do.nome_prodotto, do.quantita, do.unita_misura, do.note_prodotto, do.stato_prodotto, do.data_evasione FROM ordini o LEFT JOIN dettagli_ordine do ON o.id_ordine = do.id_ordine";
     $filtro_richiedente = $_GET['richiedente'] ?? '';
     // ... Aggiungi qui tutti gli altri filtri da gestioneordini.php come li avevi...
     // Per semplicità, qui metto solo un esempio, ma dovresti copiare la logica completa

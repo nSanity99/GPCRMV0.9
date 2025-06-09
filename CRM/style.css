@@ -161,6 +161,7 @@ button[type="submit"]:hover, .admin-button:hover, .action-button:hover { backgro
 .admin-button.danger:hover, .action-button.danger:hover { background-color: #b02323; }
 .admin-button.approve { background-color: #28a745; } .admin-button.approve:hover { background-color: #1e7e34; }
 .admin-button.reject { background-color: #dc3545; } .admin-button.reject:hover { background-color: #c82333; }
+.admin-button.small { padding: 5px 10px; font-size: 0.85em; }
 .action-button.add-product { background-color: #2E572E; } .action-button.add-product:hover { background-color: #1e3c1e; }
 .action-button.confirm-product { background-color: #007bff; } .action-button.confirm-product:hover { background-color: #0056b3; }
 .action-button.submit-order { background-color: #28a745; font-size: 1.1em; padding: 12px 25px;} .action-button.submit-order:hover { background-color: #1e7e34; }

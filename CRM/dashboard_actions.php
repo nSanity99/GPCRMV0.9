@@ -25,6 +25,7 @@ if ($form_action === 'edit_user_submit') {
     $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
     $nome = trim(htmlspecialchars($_POST['nome']));
     $ruolo = trim(htmlspecialchars($_POST['ruolo']));
+    $gruppo_lavoro = trim($_POST['gruppo_lavoro']);
     $password = $_POST['password'];
     $redirect_error_url = $_POST['redirect_error'];
     $redirect_success_url = $_POST['redirect_success'];
@@ -37,11 +38,11 @@ if ($form_action === 'edit_user_submit') {
 
     if (!empty($password)) {
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("UPDATE utenti SET username = ?, email = ?, nome = ?, ruolo = ?, password_hash = ? WHERE id = ?");
-        $stmt->bind_param("sssssi", $username, $email, $nome, $ruolo, $password_hash, $user_id);
+        $stmt = $conn->prepare("UPDATE utenti SET username = ?, email = ?, nome = ?, ruolo = ?, gruppo_lavoro = ?, password_hash = ? WHERE id = ?");
+        $stmt->bind_param("ssssssi", $username, $email, $nome, $ruolo, $gruppo_lavoro, $password_hash, $user_id);
     } else {
-        $stmt = $conn->prepare("UPDATE utenti SET username = ?, email = ?, nome = ?, ruolo = ? WHERE id = ?");
-        $stmt->bind_param("ssssi", $username, $email, $nome, $ruolo, $user_id);
+        $stmt = $conn->prepare("UPDATE utenti SET username = ?, email = ?, nome = ?, ruolo = ?, gruppo_lavoro = ? WHERE id = ?");
+        $stmt->bind_param("sssssi", $username, $email, $nome, $ruolo, $gruppo_lavoro, $user_id);
     }
     
     if ($stmt->execute()) {
@@ -60,6 +61,7 @@ elseif ($form_action === 'create_user_submit') {
     $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
     $nome = trim(htmlspecialchars($_POST['nome']));
     $ruolo = trim(htmlspecialchars($_POST['ruolo']));
+    $gruppo_lavoro = trim($_POST['gruppo_lavoro']);
     $password = $_POST['password'];
 
     if (empty($username) || empty($password) || !in_array($ruolo, ['user', 'admin'])) {
@@ -69,8 +71,8 @@ elseif ($form_action === 'create_user_submit') {
     }
 
     $password_hash = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $conn->prepare("INSERT INTO utenti (username, email, nome, ruolo, password_hash) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssss", $username, $email, $nome, $ruolo, $password_hash);
+    $stmt = $conn->prepare("INSERT INTO utenti (username, email, nome, ruolo, gruppo_lavoro, password_hash) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssss", $username, $email, $nome, $ruolo, $gruppo_lavoro, $password_hash);
 
     if ($stmt->execute()) {
         $_SESSION['success_message_usermgmt'] = "Nuovo utente '" . $username . "' creato con successo!";
