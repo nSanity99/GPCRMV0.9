@@ -3,16 +3,52 @@ session_start();
 
 require_once 'db_config.php';
 
-// Verifica se l'utente è loggato, altrimenti reindirizza alla pagina di login
-if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: login.php");
+// Verifica login
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['user_id'])) {
+    header('Location: login.php');
     exit;
 }
 
-// Preparazione dati per il form
-$current_date = date('d/m/Y');
-$richiedente_nome = (!empty($_SESSION['user_fullname'])) ? htmlspecialchars($_SESSION['user_fullname']) : htmlspecialchars($_SESSION['username']);
+$id_ordine = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+if ($conn->connect_error || !$id_ordine) {
+    header('Location: i_miei_ordini.php?edit=error');
+    exit;
+}
+
+$stmt_info = $conn->prepare('SELECT nome_richiedente, centro_costo, consenti_modifica, id_utente_richiedente FROM ordini WHERE id_ordine = ?');
+$stmt_info->bind_param('i', $id_ordine);
+$stmt_info->execute();
+$info = $stmt_info->get_result()->fetch_assoc();
+$stmt_info->close();
+
+if (!$info || $info['id_utente_richiedente'] != $_SESSION['user_id'] || $info['consenti_modifica'] != 1) {
+    $conn->close();
+    header('Location: i_miei_ordini.php?edit=error');
+    exit;
+}
+
+$richiedente_nome = htmlspecialchars($info['nome_richiedente']);
 $id_utente_richiedente = $_SESSION['user_id'];
+$centro_costo_selezionato = htmlspecialchars($info['centro_costo']);
+
+// Carica prodotti esistenti
+$prodotti_esistenti = [];
+$stmt_det = $conn->prepare('SELECT nome_prodotto, quantita, unita_misura, note_prodotto FROM dettagli_ordine WHERE id_ordine = ? ORDER BY id_dettaglio_ordine');
+$stmt_det->bind_param('i', $id_ordine);
+$stmt_det->execute();
+$res_det = $stmt_det->get_result();
+while ($row = $res_det->fetch_assoc()) {
+    $prodotti_esistenti[] = [
+        'name' => $row['nome_prodotto'],
+        'quantity' => (int)$row['quantita'],
+        'unit' => $row['unita_misura'],
+        'notes' => $row['note_prodotto'] ?? ''
+    ];
+}
+$stmt_det->close();
+$conn->close();
+$current_date = date('d/m/Y');
 
 // Opzioni per i dropdown
 $centri_di_costo = [
@@ -80,7 +116,7 @@ error_log("--- [{$timestamp}] Accesso a form_page.php UTENTE: " . htmlspecialcha
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modulo Richiesta Acquisti - Gruppo Vitolo</title>
+    <title>Modifica Richiesta - Gruppo Vitolo</title>
     <link rel="stylesheet" href="style.css"> 
     <style>
         html {
@@ -176,7 +212,7 @@ error_log("--- [{$timestamp}] Accesso a form_page.php UTENTE: " . htmlspecialcha
                 <a href="dashboard.php"> <img src="logo.png" alt="Logo Gruppo Vitolo" class="logo">
                 </a>
                 <div class="header-titles">
-                    <h1>Modulo Richiesta Acquisti</h1>
+                    <h1>Modifica Richiesta</h1>
                     <h2>Gruppo Vitolo</h2>
                 </div>
             </div>
@@ -198,7 +234,8 @@ error_log("--- [{$timestamp}] Accesso a form_page.php UTENTE: " . htmlspecialcha
                 </div>
             <?php endif; ?>
 
-            <form id="main-request-form" action="submit_order_action.php" method="POST">
+            <form id="main-request-form" action="update_order_action.php" method="POST">
+                <input type="hidden" name="id_ordine" value="<?php echo $id_ordine; ?>">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="data_richiesta_display">Data Richiesta:</label>
@@ -217,7 +254,7 @@ error_log("--- [{$timestamp}] Accesso a form_page.php UTENTE: " . htmlspecialcha
                         <select id="centro_costo" name="centro_costo" required>
                             <option value="">Seleziona un centro di costo...</option>
                             <?php foreach ($centri_di_costo as $cdc): ?>
-                                <option value="<?php echo htmlspecialchars($cdc); ?>"><?php echo htmlspecialchars($cdc); ?></option>
+                                <option value="<?php echo htmlspecialchars($cdc); ?>" <?php echo ($cdc == $centro_costo_selezionato) ? 'selected' : ''; ?>><?php echo htmlspecialchars($cdc); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -296,7 +333,7 @@ error_log("--- [{$timestamp}] Accesso a form_page.php UTENTE: " . htmlspecialcha
                 <input type="hidden" name="prodotti_json" id="prodotti_json">
 
                 <div class="main-form-actions">
-                    <button type="submit" id="submit-order-btn" class="action-button submit-order">Invia Richiesta</button> 
+                    <button type="submit" id="submit-order-btn" class="action-button submit-order">Salva Modifiche</button>
                 </div>
             </form>
         </main>
@@ -322,7 +359,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const addProductAdminBtn = document.getElementById('add-product-admin-btn');
     const newProductAdminInput = document.getElementById('new_product_admin');
     const newProductCategorySelect = document.getElementById('new_product_category');
-    let addedProductsArray = [];
+    let addedProductsArray = <?php echo json_encode($prodotti_esistenti, JSON_UNESCAPED_UNICODE); ?>;
 
     showProductFormBtn.addEventListener('click', function() {
         productEntryForm.style.display = 'block';

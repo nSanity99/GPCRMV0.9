@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS `ordini` (
   `nome_richiedente` varchar(150) NOT NULL,
   `centro_costo` varchar(100) NOT NULL,
   `stato_ordine` varchar(50) NOT NULL DEFAULT 'Inviato',
+  `consenti_modifica` tinyint(1) NOT NULL DEFAULT 0,
   `fattura_file` varchar(255) DEFAULT NULL,
   `data_creazione` timestamp NOT NULL DEFAULT current_timestamp(),
   `data_ultima_modifica` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -126,6 +127,22 @@ CREATE TABLE IF NOT EXISTS `ordini_chat` (
   CONSTRAINT `ordini_chat_ibfk_2` FOREIGN KEY (`id_utente`) REFERENCES `utenti` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- ------------------------------------------------------------------
+-- Tabella ordini_modifiche: traccia delle modifiche apportate dagli utenti
+-- ------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `ordini_modifiche` (
+  `id_modifica` int(11) NOT NULL AUTO_INCREMENT,
+  `id_ordine` int(11) NOT NULL,
+  `id_utente` int(11) NOT NULL,
+  `prima` text NOT NULL,
+  `dopo` text NOT NULL,
+  `data_modifica` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id_modifica`),
+  KEY `idx_modifica_ordine` (`id_ordine`),
+  CONSTRAINT `modifiche_ordine_ibfk_1` FOREIGN KEY (`id_ordine`) REFERENCES `ordini` (`id_ordine`) ON DELETE CASCADE,
+  CONSTRAINT `modifiche_utente_ibfk_2` FOREIGN KEY (`id_utente`) REFERENCES `utenti` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
 -- Dump della struttura di tabella gruppo_vitolo_db.utenti
 CREATE TABLE IF NOT EXISTS `utenti` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -142,8 +159,39 @@ CREATE TABLE IF NOT EXISTS `utenti` (
 
 -- Dump dei dati della tabella gruppo_vitolo_db.utenti: ~2 rows (circa)
 INSERT INTO `utenti` (`id`, `username`, `email`, `nome`, `password_hash`, `ruolo`, `data_creazione`) VALUES
-	(1, 'admin', 'admin@gruppovitolo.example.com', 'admin', '$2y$10$9RMP49bT0CRS9I.MXuIa7ek2SHfovBVWezAMjYvXTyz5oq.2EV3NO', 'admin', '2025-06-06 07:36:44'),
-	(2, 'users', '', 'users', '$2y$10$jCb4tU2C6hc99e4gFJUCTePCTwJhtK7BuK1lF046bJrscFDw4ikVi', 'user', '2025-06-06 07:36:44');
+        (1, 'admin', 'admin@gruppovitolo.example.com', 'admin', '$2y$10$9RMP49bT0CRS9I.MXuIa7ek2SHfovBVWezAMjYvXTyz5oq.2EV3NO', 'admin', '2025-06-06 07:36:44'),
+        (2, 'users', '', 'users', '$2y$10$jCb4tU2C6hc99e4gFJUCTePCTwJhtK7BuK1lF046bJrscFDw4ikVi', 'user', '2025-06-06 07:36:44');
+
+-- ------------------------------------------------------------------
+-- Tabella categorie_prodotti: raggruppa i prodotti per categoria
+-- ------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `categorie_prodotti` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nome` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_nome_categoria` (`nome`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+INSERT INTO `categorie_prodotti` (`id`, `nome`) VALUES
+        (1, 'Generale');
+
+-- ------------------------------------------------------------------
+-- Tabella catalogo_prodotti: elenco di prodotti disponibili per l'app
+-- ------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `catalogo_prodotti` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nome` varchar(255) NOT NULL,
+  `categoria_id` int(11) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_nome` (`nome`),
+  KEY `idx_categoria` (`categoria_id`),
+  CONSTRAINT `catalogo_categoria_fk` FOREIGN KEY (`categoria_id`) REFERENCES `categorie_prodotti` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+-- Esempio di prodotti iniziali
+INSERT INTO `catalogo_prodotti` (`id`, `nome`) VALUES
+        (1, 'Carta A4'),
+        (2, 'Toner Stampante');
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

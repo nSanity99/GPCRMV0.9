@@ -128,6 +128,10 @@ $user_role_display = htmlspecialchars(isset($_SESSION['ruolo']) ? $_SESSION['ruo
                     <div class="tool-card-header"><div class="tool-card-icon">👤</div><h3 class="tool-card-title">Gestione Utenze</h3></div>
                     <p class="tool-card-description">Crea, visualizza e modifica gli utenti del sistema.</p>
                 </a>
+                <a href="gestioneprodotti.php" class="tool-card">
+                    <div class="tool-card-header"><div class="tool-card-icon">📦</div><h3 class="tool-card-title">Gestione Prodotti</h3></div>
+                    <p class="tool-card-description">Aggiungi nuovi prodotti al catalogo.</p>
+                </a>
             </div>
         <?php endif; ?>
 
