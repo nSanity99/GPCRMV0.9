@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+require_once 'db_config.php';
+
 // Verifica se l'utente è loggato, altrimenti reindirizza alla pagina di login
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header("Location: login.php");
@@ -29,6 +31,22 @@ $centri_di_costo = [
 sort($centri_di_costo);
 
 $unita_di_misura = ["Pezzo", "Cartone", "Scatolo"];
+
+// Caricamento catalogo prodotti dal database
+$catalogo_prodotti = [];
+$conn_prod = isset($db_port)
+    ? new mysqli($db_host, $db_user, $db_pass, $db_name, $db_port)
+    : new mysqli($db_host, $db_user, $db_pass, $db_name);
+if (!$conn_prod->connect_error) {
+    $res = $conn_prod->query("SELECT id, nome FROM catalogo_prodotti ORDER BY nome ASC");
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $catalogo_prodotti[] = $row['nome'];
+        }
+        $res->free();
+    }
+    $conn_prod->close();
+}
 
 // Gestione messaggi di feedback
 $feedback_message = '';
@@ -210,10 +228,26 @@ error_log("--- [{$timestamp}] Accesso a form_page.php UTENTE: " . htmlspecialcha
                 
                 <div id="product-entry-form" style="display:none;">
                     <h3>Dettaglio Prodotto</h3>
+                    <?php if (isset($_SESSION['ruolo']) && $_SESSION['ruolo'] === 'admin'): ?>
+                    <div class="form-row">
+                        <div class="form-group" style="flex-basis:100%;">
+                            <label for="new_product_admin">Nuovo prodotto per catalogo:</label>
+                            <input type="text" id="new_product_admin" />
+                            <button type="button" id="add-product-admin-btn" class="action-button add-product" style="margin-top:10px;">Aggiungi</button>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                     <div class="form-row">
                         <div class="form-group" style="flex-basis: 100%;">
-                            <label for="product_name">Prodotto:</label>
-                            <input type="text" id="product_name" name="product_name_temp"> 
+                            <label for="product_name_select">Prodotto:</label>
+                            <select id="product_name_select" name="product_name_select">
+                                <option value="">Seleziona prodotto...</option>
+                                <?php foreach ($catalogo_prodotti as $pr): ?>
+                                    <option value="<?php echo htmlspecialchars($pr); ?>"><?php echo htmlspecialchars($pr); ?></option>
+                                <?php endforeach; ?>
+                                <option value="__custom__">Prodotto personalizzato...</option>
+                            </select>
+                            <input type="text" id="product_name_custom" style="display:none; margin-top:8px;" placeholder="Specificare prodotto" />
                         </div>
                     </div>
                     <div class="form-row">
@@ -263,17 +297,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmProductBtn = document.getElementById('confirm-product-btn');
     const cancelProductBtn = document.getElementById('cancel-product-btn');
     const addedProductsList = document.getElementById('added-products-list');
-    const productNameInput = document.getElementById('product_name');
+    const productSelect = document.getElementById('product_name_select');
+    const productNameCustom = document.getElementById('product_name_custom');
     const productQuantityInput = document.getElementById('product_quantity');
     const productUnitInput = document.getElementById('product_unit');
     const productNotesInput = document.getElementById('product_notes');
     const prodottiJsonInput = document.getElementById('prodotti_json');
+    const addProductAdminBtn = document.getElementById('add-product-admin-btn');
+    const newProductAdminInput = document.getElementById('new_product_admin');
     let addedProductsArray = [];
 
     showProductFormBtn.addEventListener('click', function() {
         productEntryForm.style.display = 'block';
         showProductFormBtn.style.display = 'none';
-        productNameInput.focus();
+        productSelect.focus();
         productEntryForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 
@@ -283,15 +320,64 @@ document.addEventListener('DOMContentLoaded', function() {
         clearProductForm();
     });
 
+    if (addProductAdminBtn) {
+        addProductAdminBtn.addEventListener('click', function() {
+            const newName = newProductAdminInput.value.trim();
+            if (!newName) {
+                alert('Inserire il nome del prodotto da aggiungere.');
+                newProductAdminInput.focus();
+                return;
+            }
+            const fd = new FormData();
+            fd.append('nome_prodotto', newName);
+            addProductAdminBtn.disabled = true;
+            fetch('add_product_action.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        const opt = document.createElement('option');
+                        opt.value = newName;
+                        opt.textContent = newName;
+                        productSelect.insertBefore(opt, productSelect.lastElementChild);
+                        productSelect.value = newName;
+                        newProductAdminInput.value = '';
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(() => alert('Errore di rete durante l\'aggiunta del prodotto.'))
+                .finally(() => { addProductAdminBtn.disabled = false; });
+        });
+    }
+
+    productSelect.addEventListener('change', function() {
+        if (productSelect.value === '__custom__') {
+            productNameCustom.style.display = 'block';
+            productNameCustom.focus();
+        } else {
+            productNameCustom.style.display = 'none';
+            productNameCustom.value = '';
+        }
+    });
+
     confirmProductBtn.addEventListener('click', function() {
-        const name = productNameInput.value.trim();
+        let name = '';
+        if (productSelect.value === '__custom__') {
+            name = productNameCustom.value.trim();
+        } else {
+            name = productSelect.value.trim();
+        }
         const quantity = productQuantityInput.value.trim();
         const unit = productUnitInput.value;
         const notes = productNotesInput.value.trim();
 
         if (!name) {
             alert('Inserire il nome del prodotto.');
-            productNameInput.focus();
+            if (productSelect.value === '__custom__') {
+                productNameCustom.focus();
+            } else {
+                productSelect.focus();
+            }
             return;
         }
         if (!quantity || parseInt(quantity) <= 0 || parseInt(quantity) > 999) {
@@ -310,7 +396,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function clearProductForm() {
-        productNameInput.value = '';
+        productSelect.value = '';
+        productNameCustom.value = '';
+        productNameCustom.style.display = 'none';
         productQuantityInput.value = '';
         productUnitInput.value = productUnitInput.options[0].value;
         productNotesInput.value = '';
