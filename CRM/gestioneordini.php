@@ -27,6 +27,7 @@ $filtro_data_a = isset($_GET['data_a']) ? $_GET['data_a'] : '';
 $conn_go = isset($db_port) ? new mysqli($db_host, $db_user, $db_pass, $db_name, $db_port) : new mysqli($db_host, $db_user, $db_pass, $db_name);
 $ordini_dal_db = [];
 $chat_messaggi = [];
+$ordini_modifiche = [];
 $db_error_message_go = null;
 $totale_ordini = 0;
 
@@ -62,7 +63,7 @@ if ($conn_go->connect_error) {
         $offset = ($pagina_corrente - 1) * $ordini_per_pagina;
     }
 
-    $sql_base = "SELECT id_ordine, data_richiesta, nome_richiedente, centro_costo, stato_ordine FROM ordini" . $sql_where_clause;
+    $sql_base = "SELECT id_ordine, data_richiesta, nome_richiedente, centro_costo, stato_ordine, consenti_modifica FROM ordini" . $sql_where_clause;
     $sql_base .= " ORDER BY CASE stato_ordine WHEN 'Inviato' THEN 1 WHEN 'In Lavorazione' THEN 2 WHEN 'Approvato Parzialmente' THEN 3 WHEN 'Approvato' THEN 4 WHEN 'Rifiutato' THEN 5 WHEN 'Evaso' THEN 6 ELSE 7 END, data_richiesta DESC";
     $sql_base .= " LIMIT ? OFFSET ?";
 
@@ -108,6 +109,21 @@ if ($conn_go->connect_error) {
                 $res_chat->free();
             }
             $stmt_chat->close();
+
+            // Carica anche le modifiche registrate
+            $types_mod = str_repeat('i', count($ids));
+            $sql_mod = "SELECT id_ordine, prima, dopo, data_modifica FROM ordini_modifiche WHERE id_ordine IN ($placeholders) ORDER BY data_modifica ASC";
+            $stmt_mod = $conn_go->prepare($sql_mod);
+            $stmt_mod->bind_param($types_mod, ...$ids);
+            $stmt_mod->execute();
+            $res_mod = $stmt_mod->get_result();
+            if ($res_mod) {
+                while ($row = $res_mod->fetch_assoc()) {
+                    $ordini_modifiche[$row['id_ordine']][] = $row;
+                }
+                $res_mod->free();
+            }
+            $stmt_mod->close();
         }
     } else {
         $db_error_message_go = "Errore durante la preparazione degli ordini.";
@@ -308,6 +324,11 @@ if ($conn_go->connect_error) {
                             </div>
                             <div class="order-details">
                                 <h4>Dettaglio Prodotti:</h4>
+                                <?php if ($ordine['consenti_modifica'] == 0 && $ordine['stato_ordine'] !== 'Evaso'): ?>
+                                    <button type="button" class="admin-button small unlock-order-btn" data-order-id="<?php echo $ordine['id_ordine']; ?>">Sblocca per Modifica</button>
+                                <?php elseif ($ordine['consenti_modifica'] == 1): ?>
+                                    <p style="color:#0d6efd;font-weight:bold;">Ordine modificabile dall'utente.</p>
+                                <?php endif; ?>
                                 <?php if (!empty($ordine['prodotti'])): ?>
                                     <?php foreach ($ordine['prodotti'] as $prodotto): ?>
                                         <div class="product-detail-item" data-product-id="<?php echo $prodotto['id_dettaglio_ordine']; ?>">
@@ -336,7 +357,7 @@ if ($conn_go->connect_error) {
                                     <p>Nessun prodotto in questo ordine.</p>
                                 <?php endif; ?>
 
-                                <?php if (!empty($chat_messaggi[$ordine['id_ordine']])): ?>
+                               <?php if (!empty($chat_messaggi[$ordine['id_ordine']])): ?>
                                     <div class="chat-messages">
                                         <?php foreach ($chat_messaggi[$ordine['id_ordine']] as $msg): ?>
                                             <div class="chat-message admin">
@@ -352,7 +373,22 @@ if ($conn_go->connect_error) {
                                                         <time><?php echo date('d/m H:i', strtotime($msg['data_risposta'])); ?></time>
                                                     </div>
                                                 </div>
-                                            <?php endif; ?>
+                               <?php endif; ?>
+
+                                <?php if (!empty($ordini_modifiche[$ordine['id_ordine']])): ?>
+                                    <div class="order-modifications" style="margin-top:10px;">
+                                        <h5>Modifiche effettuate:</h5>
+                                        <ul>
+                                            <?php foreach ($ordini_modifiche[$ordine['id_ordine']] as $mod): ?>
+                                                <li>
+                                                    <em><?php echo date('d/m/Y H:i', strtotime($mod['data_modifica'])); ?></em><br>
+                                                    <strong>Prima:</strong> <?php echo htmlspecialchars($mod['prima']); ?><br>
+                                                    <strong>Dopo:</strong> <?php echo htmlspecialchars($mod['dopo']); ?>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </div>
+                                <?php endif; ?>
                                         <?php endforeach; ?>
                                     </div>
                                 <?php endif; ?>
@@ -424,6 +460,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (target.classList.contains('product-action-btn') || target.classList.contains('edit-status-btn')) {
                 event.stopPropagation(); // Evita che il click si propaghi e chiuda/apra l'ordine
                 handleProductAction(target);
+            }
+
+            if (target.classList.contains('unlock-order-btn')) {
+                event.stopPropagation();
+                unlockOrder(target);
             }
 
             const chatBtn = target.closest('.update-chat-btn');
@@ -507,6 +548,26 @@ document.addEventListener('DOMContentLoaded', function() {
             orderStatusBadge.textContent = newOrderStatus;
             orderStatusBadge.className = 'status-badge ' + newOrderStatus.toLowerCase().replace(/ /g, '-');
         }
+    }
+
+    function unlockOrder(button) {
+        const orderId = button.dataset.orderId;
+        button.textContent = '...';
+        button.disabled = true;
+        const fd = new FormData();
+        fd.append('id_ordine', orderId);
+        fetch('unlock_order_action.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    button.outerHTML = '<p style="color:#0d6efd;font-weight:bold;">Ordine modificabile dall\'utente.</p>';
+                } else {
+                    alert(data.message);
+                    button.textContent = 'Sblocca per Modifica';
+                    button.disabled = false;
+                }
+            })
+            .catch(() => { alert('Errore di rete.'); button.textContent = 'Sblocca per Modifica'; button.disabled = false; });
     }
 
     function handleChatSubmit(button) {

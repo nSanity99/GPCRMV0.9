@@ -24,7 +24,7 @@ if ($conn->connect_error) {
     $db_error_message = "Impossibile connettersi al database per caricare lo storico.";
 } else {
     // 1. Prendi tutti gli ordini creati dall'utente loggato
-    $sql_ordini = "SELECT id_ordine, data_richiesta, centro_costo, stato_ordine, fattura_file
+    $sql_ordini = "SELECT id_ordine, data_richiesta, centro_costo, stato_ordine, consenti_modifica, fattura_file
                    FROM ordini
                    WHERE id_utente_richiedente = ?
                    ORDER BY data_richiesta DESC";
@@ -176,6 +176,9 @@ if ($conn->connect_error) {
                                     <span class="status-badge <?php echo $status_class; ?>">
                                         <?php echo htmlspecialchars($ordine['stato_ordine']); ?>
                                     </span>
+                                    <?php if ($ordine['consenti_modifica'] == 1): ?>
+                                        <a href="edit_order.php?id=<?php echo $ordine['id_ordine']; ?>" class="nav-link-button" style="margin-left:10px;">Modifica</a>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                             <div class="order-details">
