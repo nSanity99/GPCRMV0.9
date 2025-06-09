@@ -142,8 +142,23 @@ CREATE TABLE IF NOT EXISTS `utenti` (
 
 -- Dump dei dati della tabella gruppo_vitolo_db.utenti: ~2 rows (circa)
 INSERT INTO `utenti` (`id`, `username`, `email`, `nome`, `password_hash`, `ruolo`, `data_creazione`) VALUES
-	(1, 'admin', 'admin@gruppovitolo.example.com', 'admin', '$2y$10$9RMP49bT0CRS9I.MXuIa7ek2SHfovBVWezAMjYvXTyz5oq.2EV3NO', 'admin', '2025-06-06 07:36:44'),
-	(2, 'users', '', 'users', '$2y$10$jCb4tU2C6hc99e4gFJUCTePCTwJhtK7BuK1lF046bJrscFDw4ikVi', 'user', '2025-06-06 07:36:44');
+        (1, 'admin', 'admin@gruppovitolo.example.com', 'admin', '$2y$10$9RMP49bT0CRS9I.MXuIa7ek2SHfovBVWezAMjYvXTyz5oq.2EV3NO', 'admin', '2025-06-06 07:36:44'),
+        (2, 'users', '', 'users', '$2y$10$jCb4tU2C6hc99e4gFJUCTePCTwJhtK7BuK1lF046bJrscFDw4ikVi', 'user', '2025-06-06 07:36:44');
+
+-- ------------------------------------------------------------------
+-- Tabella catalogo_prodotti: elenco di prodotti disponibili per l'app
+-- ------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `catalogo_prodotti` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nome` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_nome` (`nome`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+-- Esempio di prodotti iniziali
+INSERT INTO `catalogo_prodotti` (`id`, `nome`) VALUES
+        (1, 'Carta A4'),
+        (2, 'Toner Stampante');
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
